@@ -1,0 +1,13 @@
+coreshop_admin_product_price_rule:
+  type: coreshop.resources
+  resource: |
+    alias: coreshop.product_price_rule
+
+
+coreshop_admin_product_price_rule_types:
+  path: /%coreshop.admin.route.base%/product_price_rules/get-config
+  defaults: { _controller: 'coreshop.admin_controller.product_price_rule:getConfigAction'}
+
+coreshop_admin_product_specific_price_rule_types:
+  path: /%coreshop.admin.route.base%/product_specific_price_rules/get-config
+  defaults: { _controller: 'coreshop.admin_controller.product_specific_price_rule:getConfigAction'}
