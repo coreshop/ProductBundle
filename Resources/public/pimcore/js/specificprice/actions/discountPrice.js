@@ -1,5 +1,4 @@
-<?php
-/**
+/*
  * CoreShop.
  *
  * This source file is subject to the GNU General Public License version 3 (GPLv3)
@@ -8,19 +7,8 @@
  *
  * @copyright  Copyright (c) 2015-2017 Dominik Pfaffenbauer (https://www.pfaffenbauer.at)
  * @license    https://www.coreshop.org/license     GNU General Public License version 3 (GPLv3)
+ *
  */
 
-namespace CoreShop\Bundle\ProductBundle\Form\Type;
-
-use CoreShop\Bundle\RuleBundle\Form\Type\RuleActionChoiceType;
-
-class ProductPriceRuleActionChoiceType extends RuleActionChoiceType
-{
-    /**
-     * {@inheritdoc}
-     */
-    public function getBlockPrefix()
-    {
-        return 'coreshop_product_price_rule_action_choice';
-    }
-}
+pimcore.registerNS('coreshop.product.specificprice.actions.discountPrice');
+coreshop.product.specificprice.actions.discountPrice = Class.create(coreshop.product.pricerule.actions.discountPrice, {});

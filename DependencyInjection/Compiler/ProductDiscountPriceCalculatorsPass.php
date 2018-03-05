@@ -12,16 +12,29 @@
 
 namespace CoreShop\Bundle\ProductBundle\DependencyInjection\Compiler;
 
-use CoreShop\Bundle\ResourceBundle\DependencyInjection\Compiler\RegisterSimpleRegistryTypePass;
-
-final class ProductValidPriceRuleFetcherPass extends RegisterSimpleRegistryTypePass
+final class ProductDiscountPriceCalculatorsPass extends AbstractProductPriceCalculatorPass
 {
-    public function __construct()
+    /**
+     * {@inheritdoc}
+     */
+    protected function getRegistry()
     {
-        parent::__construct(
-            'coreshop.registry.product.rules.fetcher',
-            'coreshop.product.rules.fetchers',
-            'coreshop.product.rules.fetcher'
-        );
+        return 'coreshop.registry.product.discount_price_calculators';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function getTag()
+    {
+        return 'coreshop.product.discount_price_calculator';
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function getParameter()
+    {
+        return 'coreshop.product.discount_price_calculators';
     }
 }
