@@ -13,8 +13,8 @@
 namespace CoreShop\Bundle\ProductBundle\Doctrine\ORM;
 
 use CoreShop\Bundle\ResourceBundle\Doctrine\ORM\EntityRepository;
-use CoreShop\Component\Product\Repository\ProductAdditionalUnitRepositoryInterface;
+use CoreShop\Component\Product\Repository\ProductUnitDefinitionRepositoryInterface;
 
-class ProductAdditionalUnitRepository extends EntityRepository implements ProductAdditionalUnitRepositoryInterface
+class ProductUnitDefinitionRepository extends EntityRepository implements ProductUnitDefinitionRepositoryInterface
 {
 }
