@@ -11,21 +11,12 @@
  */
 
 import React from 'react'
-import { Tree, Modal, Input, Form, Empty, Button } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
-import type { DataNode } from 'antd/es/tree'
-import {
-  SplitLayout,
-  Content,
-  ContentLayout,
-  Toolbar as PimToolbar,
-  Dropdown,
-  DropdownButton,
-  Icon,
-  IconButton
-} from '@pimcore/studio-ui-bundle/components'
-import { RuleForm } from '@coreshop/rule/src/rules'
-import type { RuleConfig } from '@coreshop/rule/src/rules'
+import { Tabs, Modal, Input, Form, Button, Typography, Space } from 'antd'
+import { PlusOutlined, SettingOutlined, SearchOutlined, ThunderboltOutlined, TagOutlined } from '@ant-design/icons'
+import { container } from '@pimcore/studio-ui-bundle'
+import { ConditionsPanel } from '@coreshop/rule/src/rules/components/ConditionsPanel'
+import { ActionsPanel } from '@coreshop/rule/src/rules/components/ActionsPanel'
+import type { RuleCondition, RuleAction } from '@coreshop/rule/src/rules/types'
 import { useTranslation } from 'react-i18next'
 import type { ProductSpecificPriceRule, ProductSpecificPriceRulesData } from '../types'
 import { coreshopProductServiceIds } from '../../product-price-rules/service-ids'
@@ -39,6 +30,33 @@ interface Props {
   locales?: string[]
 }
 
+/**
+ * Generate tab label with name, priority, and active status
+ */
+const generateTabLabel = (rule: ProductSpecificPriceRule, t: (key: string, opts?: any) => string): React.ReactNode => {
+  return (
+    <Space size={4}>
+      <TagOutlined style={{ color: '#ff6600' }} />
+      <span>{rule.name || t('coreshop_new_rule', { defaultValue: 'New Rule' })}</span>
+      {rule.priority !== undefined && rule.priority > 0 && (
+        <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+          (Prio: {rule.priority})
+        </Typography.Text>
+      )}
+      {!rule.active && (
+        <span style={{
+          display: 'inline-block',
+          width: 8,
+          height: 8,
+          backgroundColor: '#ff4d4f',
+          borderRadius: '50%',
+          marginLeft: 4
+        }} title={t('inactive', { defaultValue: 'Inactive' })} />
+      )}
+    </Space>
+  )
+}
+
 export const ProductSpecificPriceRulesPanel: React.FC<Props> = ({
   value,
   onChange,
@@ -47,22 +65,50 @@ export const ProductSpecificPriceRulesPanel: React.FC<Props> = ({
   locales = ['en', 'de']
 }) => {
   const { t } = useTranslation()
-  const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null)
+  const [activeRuleKey, setActiveRuleKey] = React.useState<string | undefined>(
+    value.rules.length > 0 ? '0' : undefined
+  )
   const [addModalVisible, setAddModalVisible] = React.useState(false)
   const [newRuleName, setNewRuleName] = React.useState('')
 
-  const config: RuleConfig = React.useMemo(() => ({
-    conditions: value.conditions || [],
-    actions: value.actions || []
-  }), [value.conditions, value.actions])
+  // Check if registries are available
+  const hasConditionRegistry = React.useMemo(() => {
+    try {
+      return container.isBound(coreshopProductServiceIds.productSpecificPriceRuleConditionRegistry)
+    } catch (e) {
+      console.warn('Product specific price rules condition registry not available:', e)
+      return false
+    }
+  }, [])
 
-  const selectedRule = selectedIndex !== null ? value.rules[selectedIndex] : undefined
+  const hasActionRegistry = React.useMemo(() => {
+    try {
+      return container.isBound(coreshopProductServiceIds.productSpecificPriceRuleActionRegistry)
+    } catch (e) {
+      console.warn('Product specific price rules action registry not available:', e)
+      return false
+    }
+  }, [])
 
-  const handleRuleChange = (updatedRule: ProductSpecificPriceRule) => {
-    if (selectedIndex === null) return
+  // Get available types from backend
+  const availableConditionTypes = React.useMemo(() => {
+    return value.conditions || []
+  }, [value.conditions])
+
+  const availableActionTypes = React.useMemo(() => {
+    return value.actions || []
+  }, [value.actions])
+
+  const handleRuleChange = (index: number, updatedRule: ProductSpecificPriceRule) => {
     const newRules = [...value.rules]
-    newRules[selectedIndex] = updatedRule
+    newRules[index] = updatedRule
     onChange({ ...value, rules: newRules })
+  }
+
+  const handleFieldChange = (index: number, field: keyof ProductSpecificPriceRule, fieldValue: any) => {
+    const rule = value.rules[index]
+    if (!rule) return
+    handleRuleChange(index, { ...rule, [field]: fieldValue })
   }
 
   const handleAddRule = () => {
@@ -77,7 +123,7 @@ export const ProductSpecificPriceRulesPanel: React.FC<Props> = ({
     }
     const newRules = [...value.rules, newRule]
     onChange({ ...value, rules: newRules })
-    setSelectedIndex(newRules.length - 1)
+    setActiveRuleKey(String(newRules.length - 1))
     setNewRuleName('')
     setAddModalVisible(false)
   }
@@ -92,138 +138,158 @@ export const ProductSpecificPriceRulesPanel: React.FC<Props> = ({
       onOk: () => {
         const newRules = value.rules.filter((_, i) => i !== index)
         onChange({ ...value, rules: newRules })
-        if (selectedIndex === index) {
-          setSelectedIndex(newRules.length > 0 ? 0 : null)
-        } else if (selectedIndex !== null && selectedIndex > index) {
-          setSelectedIndex(selectedIndex - 1)
+
+        // Adjust active key
+        if (activeRuleKey === String(index)) {
+          setActiveRuleKey(newRules.length > 0 ? '0' : undefined)
+        } else if (Number(activeRuleKey) > index) {
+          setActiveRuleKey(String(Number(activeRuleKey) - 1))
         }
       }
     })
   }
 
-  // Build tree data for the left panel
-  const treeData: DataNode[] = React.useMemo(() => {
-    const children: DataNode[] = value.rules.map((rule, index) => ({
-      key: index,
-      title: (
-        <Dropdown
-          trigger={['contextMenu']}
-          menu={{
-            items: [
-              {
-                key: 'delete',
-                icon: <Icon value='trash' />,
-                label: t('toolbar.delete', { defaultValue: 'Delete' }),
-                onClick: () => handleDeleteRule(index),
-                disabled
-              }
-            ]
-          }}
-        >
-          <span>{rule.name || `${t('coreshop_rule', { defaultValue: 'Rule' })} ${index + 1}`}</span>
-        </Dropdown>
-      ),
-      isLeaf: true
-    }))
-
-    return [{
-      key: 'root',
-      title: (
-        <>
-          <Icon value='folder' />
-          <span style={{ marginLeft: 4 }}>
-            {t('coreshop_product_specific_price_rules', { defaultValue: 'Product Specific Price Rules' })}
-          </span>
-        </>
-      ),
-      selectable: false,
-      children
-    }]
-  }, [value.rules, t, disabled])
-
-  const [expandedKeys, setExpandedKeys] = React.useState<React.Key[]>(['root'])
-
-  // Left panel with tree
-  const leftPanel = {
-    id: 'rule-list',
-    size: 25,
-    minSize: 200,
-    children: [
-      <ContentLayout
-        key="rule-list-layout"
-        renderToolbar={
-          <PimToolbar>
-            {!disabled && (
-              <Dropdown
-                menu={{
-                  items: [{
-                    key: 'add',
-                    label: t('coreshop_add_rule', { defaultValue: 'New Rule' }),
-                    icon: <Icon value='new' />,
-                    onClick: () => setAddModalVisible(true)
-                  }]
-                }}
-                trigger={['click']}
-              >
-                <DropdownButton>
-                  {t('toolbar.new', { defaultValue: 'New' })}
-                </DropdownButton>
-              </Dropdown>
-            )}
-          </PimToolbar>
-        }
-      >
-        <Tree
-          treeData={treeData}
-          expandedKeys={expandedKeys}
-          onExpand={(keys) => setExpandedKeys(keys as React.Key[])}
-          selectedKeys={selectedIndex !== null ? [selectedIndex] : []}
-          onSelect={(keys) => {
-            const key = Array.isArray(keys) ? keys[0] : keys
-            if (typeof key === 'number') {
-              setSelectedIndex(key)
-            }
-          }}
-          style={{ padding: 8 }}
-        />
-      </ContentLayout>
+  // Build sub-tabs for a single rule
+  const buildRuleSubTabs = (rule: ProductSpecificPriceRule, ruleIndex: number) => {
+    return [
+      {
+        key: 'settings',
+        label: (
+          <Space size={4}>
+            <SettingOutlined />
+            {t('settings', { defaultValue: 'Settings' })}
+          </Space>
+        ),
+        children: (
+          <SettingsForm
+            rule={rule}
+            onChange={(updatedRule) => handleRuleChange(ruleIndex, updatedRule)}
+            currentLocale={currentLocale}
+            locales={locales}
+          />
+        )
+      },
+      {
+        key: 'conditions',
+        label: (
+          <Space size={4}>
+            <SearchOutlined />
+            {t('coreshop_conditions', { defaultValue: 'Conditions' })}
+          </Space>
+        ),
+        children: hasConditionRegistry ? (
+          <div style={{ padding: 16 }}>
+            <ConditionsPanel
+              conditions={rule.conditions as RuleCondition[]}
+              availableTypes={availableConditionTypes}
+              onChange={(conditions: RuleCondition[]) => handleFieldChange(ruleIndex, 'conditions', conditions)}
+              registryId={coreshopProductServiceIds.productSpecificPriceRuleConditionRegistry}
+            />
+          </div>
+        ) : (
+          <div style={{ padding: 16 }}>
+            <Typography.Text type="secondary">
+              {t('coreshop_conditions_not_available', { defaultValue: 'Conditions not available' })}
+            </Typography.Text>
+          </div>
+        )
+      },
+      {
+        key: 'actions',
+        label: (
+          <Space size={4}>
+            <ThunderboltOutlined />
+            {t('coreshop_actions', { defaultValue: 'Actions' })}
+          </Space>
+        ),
+        children: hasActionRegistry ? (
+          <div style={{ padding: 16 }}>
+            <ActionsPanel
+              actions={rule.actions as RuleAction[]}
+              availableTypes={availableActionTypes}
+              onChange={(actions: RuleAction[]) => handleFieldChange(ruleIndex, 'actions', actions)}
+              registryId={coreshopProductServiceIds.productSpecificPriceRuleActionRegistry}
+            />
+          </div>
+        ) : (
+          <div style={{ padding: 16 }}>
+            <Typography.Text type="secondary">
+              {t('coreshop_actions_not_available', { defaultValue: 'Actions not available' })}
+            </Typography.Text>
+          </div>
+        )
+      }
     ]
   }
 
-  // Right panel with rule details
-  const rightPanel = {
-    id: 'rule-detail',
-    size: 75,
-    minSize: 400,
-    children: [
-      <Content key="rule-detail-content" style={{ height: '100%', overflow: 'auto' }}>
-        {selectedRule ? (
-          <RuleForm
-            rule={selectedRule}
-            config={config}
-            conditionRegistryId={coreshopProductServiceIds.productSpecificPriceRuleConditionRegistry}
-            actionRegistryId={coreshopProductServiceIds.productSpecificPriceRuleActionRegistry}
-            settingsComponent={
-              <SettingsForm
-                rule={selectedRule}
-                onChange={handleRuleChange}
-                currentLocale={currentLocale}
-                locales={locales}
-              />
-            }
-            onChange={(r) => handleRuleChange(r as ProductSpecificPriceRule)}
-            hideToolbar
+  // Build main rule tabs
+  const ruleTabItems = value.rules.map((rule, index) => ({
+    key: String(index),
+    label: generateTabLabel(rule, t),
+    closable: !disabled,
+    children: (
+      <Tabs
+        defaultActiveKey="settings"
+        items={buildRuleSubTabs(rule, index)}
+        size="small"
+      />
+    )
+  }))
+
+  // Handle tab edit (close)
+  const onTabEdit = (targetKey: React.MouseEvent | React.KeyboardEvent | string, action: 'add' | 'remove') => {
+    if (action === 'remove' && typeof targetKey === 'string') {
+      handleDeleteRule(Number(targetKey))
+    }
+  }
+
+  return (
+    <div style={{ minHeight: 400 }}>
+      {/* Header with title and add button */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+        padding: '8px 0'
+      }}>
+        <Typography.Text strong>
+          {t('coreshop_product_specific_price_rules', { defaultValue: 'Product Specific Price Rules' })}
+        </Typography.Text>
+        {!disabled && (
+          <Button
+            type="primary"
+            size="small"
+            icon={<PlusOutlined />}
+            onClick={() => setAddModalVisible(true)}
           />
-        ) : (
-          <Empty
-            style={{ marginTop: 100 }}
-            description={
-              value.rules.length === 0
-                ? t('coreshop_no_specific_price_rules', { defaultValue: 'No price rules defined' })
-                : t('coreshop_select_rule', { defaultValue: 'Select a rule to view details' })
-            }
-          >
-            {!disabled && value.rules.length === 0 && (
+        )}
+      </div>
+
+      {/* Rule tabs */}
+      {value.rules.length > 0 ? (
+        <Tabs
+          type="editable-card"
+          activeKey={activeRuleKey}
+          onChange={setActiveRuleKey}
+          onEdit={onTabEdit}
+          items={ruleTabItems}
+          hideAdd
+          size="small"
+        />
+      ) : (
+        <div style={{
+          padding: 40,
+          textAlign: 'center',
+          background: '#fafafa',
+          border: '1px dashed #d9d9d9',
+          borderRadius: 4
+        }}>
+          <Typography.Text type="secondary">
+            {t('coreshop_no_specific_price_rules', { defaultValue: 'No price rules defined' })}
+          </Typography.Text>
+          {!disabled && (
+            <div style={{ marginTop: 16 }}>
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
@@ -231,21 +297,12 @@ export const ProductSpecificPriceRulesPanel: React.FC<Props> = ({
               >
                 {t('coreshop_add_price_rule', { defaultValue: 'Add Price Rule' })}
               </Button>
-            )}
-          </Empty>
-        )}
-      </Content>
-    ]
-  }
+            </div>
+          )}
+        </div>
+      )}
 
-  return (
-    <div style={{ height: 500, display: 'flex', flexDirection: 'column' }}>
-      <SplitLayout
-        leftItem={leftPanel}
-        rightItem={rightPanel}
-        withDivider
-      />
-
+      {/* Add rule modal */}
       <Modal
         title={t('coreshop_add_price_rule', { defaultValue: 'Add Price Rule' })}
         open={addModalVisible}
