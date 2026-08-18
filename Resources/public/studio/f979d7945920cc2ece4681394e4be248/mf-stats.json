@@ -21,7 +21,7 @@
     },
     "globalName": "coreshopproduct",
     "pluginVersion": "2.8.0",
-    "publicPath": "/bundles/coreshopproduct/studio/3f8f3c3159e91cd2ed1e1f6c4dc65095/"
+    "publicPath": "/bundles/coreshopproduct/studio/f979d7945920cc2ece4681394e4be248/"
   },
   "shared": [
     {
@@ -497,8 +497,8 @@
           "sync": [
             "static/js/460.c03b1ced.js",
             "static/js/129.500c5dd3.js",
-            "static/js/685.5a632b92.js",
-            "static/js/async/__federation_expose_default_export.87cae9e1.js"
+            "static/js/685.53140534.js",
+            "static/js/async/__federation_expose_default_export.68f5ab15.js"
           ],
           "async": [
             "static/js/async/254.ce612a2e.js",
